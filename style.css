@@ -1,0 +1,163 @@
+:root {
+    --border-color: #000;
+    --bg-yellow: #fff9c4;
+    --bg-gray: #f2f2f2;
+}
+
+body {
+    background-color: #444;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Meiryo", sans-serif;
+    color: black;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* A4サイズ 完璧な収まりを目指す */
+.page-container {
+    background: white;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 12mm 10mm;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: visible !important;
+}
+
+header { text-align: center; margin-bottom: 12px; }
+header h1 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 500;
+    display: inline-block;
+    border-bottom: 1.5px solid #000;
+    padding-bottom: 2px;
+    letter-spacing: 0.05em;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: -1px;
+}
+
+/* マスの高さを最適化（ヘッダーと採点表で使い分け） */
+th, td {
+    border: 1px solid var(--border-color);
+    padding: 4px 8px;
+    font-size: 11.5px;
+    box-sizing: border-box;
+    color: #000;
+    vertical-align: middle;
+    line-height: 1.2;
+}
+
+/* ヘッダーマスの高さ（潰れ防止） */
+.info-row th, .info-row td {
+    height: 36px;
+}
+
+th {
+    background-color: var(--bg-gray);
+    font-weight: bold;
+    text-align: center;
+}
+
+.center {
+    text-align: center;
+}
+
+/* 小項目：1行・改行禁止 */
+.col-small {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+input, select, textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    background: transparent;
+    font-family: inherit;
+    color: black;
+    font-weight: 500;
+}
+
+.score-input {
+    text-align: center;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* Round 欄（画像の比率を完璧に再現） */
+.round-sub-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+.round-sub-row {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    height: 28px;
+}
+.round-sub-row:first-child {
+    border-bottom: 1px solid black;
+}
+
+.oval {
+    border: 1.5px solid transparent;
+    padding: 1px 18px;
+    cursor: pointer;
+    line-height: 1;
+    font-weight: bold;
+    display: inline-block;
+}
+.oval.selected {
+    border-color: black;
+    border-radius: 50px;
+}
+
+.count-input-line {
+    width: 50px;
+    border-bottom: 1px solid black !important;
+    text-align: center;
+    margin: 0 8px 0 auto;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* 採点表マスの高さ */
+.eval-row td, .eval-row th {
+    height: 28px;
+}
+
+.score-cell { background-color: var(--bg-yellow); }
+.pm-cell { cursor: pointer; user-select: none; text-align: center; font-weight: bold; font-size: 15px; }
+
+/* コメント欄：全体表示されるための適度な高さ */
+.comment-label { text-align: left; background: #fff; border-top: none; font-weight: bold; height: 28px; }
+.comment-cell { height: 85px; vertical-align: top; }
+textarea { height: 75px; resize: none; overflow: hidden; padding-top: 5px; }
+
+.note-section { font-size: 10px; margin-top: 15px; line-height: 1.4; }
+
+/* 操作用ツール */
+.controls { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
+.btn { padding: 12px 24px; border-radius: 8px; border: none; background: #333; color: white; cursor: pointer; font-size: 13.5px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+.btn-green { background: #1e7e34; }
+.badge { background: #007bff; color: white; padding: 6px 15px; border-radius: 4px; font-size: 12px; text-align: center; font-weight: bold; }
+
+#overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.modal { background: white; padding: 35px; border-radius: 15px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+
+@media print { .controls, #overlay { display: none !important; } }
