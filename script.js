@@ -35,7 +35,6 @@ function buildTable() {
     });
     tbody.innerHTML = html;
     
-    // イベントリスナーの追加
     document.querySelectorAll('.save-data').forEach(e => e.addEventListener('input', saveData));
     loadData();
 }
@@ -84,10 +83,15 @@ function calc() {
     document.getElementById('total-score').innerText = total;
     
     let grade = '-';
-    if (total >= 16) grade = 'A';
-    else if (total >= 12) grade = 'B';
-    else if (total >= 8) grade = 'C';
-    else grade = '評価なし';
+    if (total >= 16) {
+        grade = 'A';
+    } else if (total >= 12) {
+        grade = 'B';
+    } else if (total >= 8) {
+        grade = 'C';
+    } else {
+        grade = '-'; // 「評価なし」から「-」に変更
+    }
     
     document.getElementById('grade-display').innerText = grade;
 }
@@ -161,5 +165,4 @@ function confirmReset() {
     } 
 }
 
-// 読み込み完了時に実行
 window.onload = buildTable;
