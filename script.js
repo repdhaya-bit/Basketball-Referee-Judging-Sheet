@@ -7,13 +7,11 @@ const items = [
 ];
 
 let currentMode = 'serious';
-let gender = null;
 
 function buildTable() {
     const tbody = document.getElementById('eval-body');
     let html = '';
     let rowIdx = 0;
-
     items.forEach(cat => {
         cat.list.forEach((item, idx) => {
             html += `<tr class="eval-row">`;
@@ -22,7 +20,7 @@ function buildTable() {
                 html += `<td class="center" rowspan="${rowSpan}" style="font-weight:bold;">${cat.large}</td>`;
             }
             if (idx === 0) html += `<td class="center" rowspan="${cat.list.length}">${cat.med}</td>`;
-            html += `<td class="col-small">${item}</td>`;
+            html += `<td style="white-space:nowrap;overflow:hidden;">${item}</td>`;
             html += `<td class="pm-cell" id="pm-${rowIdx}" data-cat="${cat.id}" onclick="togglePM(this)"></td>`;
             if (idx === 0 && cat.id !== 'guid_v') {
                 const gKey = (cat.id === 'guid_f' || cat.id === 'guid_v') ? 'guid' : cat.id;
@@ -34,26 +32,22 @@ function buildTable() {
         });
     });
     tbody.innerHTML = html;
-    
     document.querySelectorAll('.save-data').forEach(e => e.addEventListener('input', saveData));
     loadData();
 }
 
 function togglePM(el) {
-    const s = ['', '+', '-'];
-    el.innerText = s[(s.indexOf(el.innerText) + 1) % 3];
+    const syms = ['', '+', '-'];
+    el.innerText = syms[(syms.indexOf(el.innerText) + 1) % 3];
     if (currentMode === 'simple') autoCalc();
     saveData();
 }
 
 function setMode(m) {
     currentMode = m;
-    const overlay = document.getElementById('overlay');
-    if(overlay) overlay.style.display = 'none';
-    
-    const badge = document.getElementById('mode-badge');
-    if(badge) badge.innerText = m === 'serious' ? '本格モード' : '簡単モード';
-    
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('settings-panel').style.display = (m === 'simple' ? 'block' : 'none');
+    document.getElementById('mode-badge').innerText = (m === 'serious' ? '本格モード' : '簡単モード');
     document.querySelectorAll('.score-input').forEach(i => i.readOnly = (m === 'simple'));
     if (m === 'simple') autoCalc();
     saveData();
@@ -62,15 +56,20 @@ function setMode(m) {
 function toggleMode() { setMode(currentMode === 'serious' ? 'simple' : 'serious'); }
 
 function autoCalc() {
-    const groups = { 'pres': {p:0, m:0}, 'mech': {p:0, m:0}, 'guid': {p:0, m:0}, 'ctrl': {p:0, m:0} };
+    const pLim = parseInt(document.getElementById('plus-threshold').value) || 2;
+    const mLim = parseInt(document.getElementById('minus-threshold').value) || 2;
+    const grps = { 'pres': 0, 'mech': 0, 'guid': 0, 'ctrl': 0 };
     document.querySelectorAll('.pm-cell').forEach(td => {
-        let c = td.getAttribute('data-cat');
-        if (c === 'guid_f' || c === 'guid_v') c = 'guid';
-        if (td.innerText === '+') groups[c].p++;
-        if (td.innerText === '-') groups[c].m++;
+        let cat = td.getAttribute('data-cat');
+        if (cat === 'guid_f' || cat === 'guid_v') cat = 'guid';
+        if (td.innerText === '+') grps[cat]++;
+        if (td.innerText === '-') grps[cat]--;
     });
-    for (let k in groups) {
-        let score = 2 + Math.floor(groups[k].p / 2) - Math.floor(groups[k].m / 2);
+    for (let k in grps) {
+        let val = grps[k];
+        let score = 2;
+        if (val > 0) score += Math.floor(val / pLim);
+        if (val < 0) score -= Math.floor(Math.abs(val) / mLim);
         const input = document.getElementById(`score-${k}`);
         if (input) input.value = Math.max(1, Math.min(5, score));
     }
@@ -81,88 +80,131 @@ function calc() {
     let total = 0;
     document.querySelectorAll('.score-input').forEach(i => total += parseInt(i.value) || 0);
     document.getElementById('total-score').innerText = total;
-    
-    let grade = '-';
-    if (total >= 16) {
-        grade = 'A';
-    } else if (total >= 12) {
-        grade = 'B';
-    } else if (total >= 8) {
-        grade = 'C';
-    } else {
-        grade = '-'; // 「評価なし」から「-」に変更
-    }
-    
+    let grade = (total >= 16) ? 'A' : (total >= 12) ? 'B' : (total >= 8) ? 'C' : '-';
     document.getElementById('grade-display').innerText = grade;
 }
 
-function selectGender(type) {
-    gender = type;
-    document.getElementById('oval-male').classList.toggle('selected', type === 'male');
-    document.getElementById('oval-female').classList.toggle('selected', type === 'female');
-    document.getElementById('box-male').style.display = (type === 'male' ? 'flex' : 'none');
-    document.getElementById('box-female').style.display = (type === 'female' ? 'flex' : 'none');
-    saveData();
+async function generateCanvas() {
+    const element = document.getElementById('sheet-area');
+    const textareas = element.querySelectorAll('textarea');
+    const replacements = [];
+    
+    textareas.forEach(ta => {
+        const div = document.createElement('div');
+        div.innerText = ta.value;
+        div.style.cssText = window.getComputedStyle(ta).cssText;
+        div.style.height = "auto";
+        div.style.minHeight = "85px";
+        div.style.whiteSpace = "pre-wrap";
+        div.style.background = "transparent";
+        ta.parentElement.appendChild(div);
+        ta.style.display = "none";
+        replacements.push({ta, div});
+    });
+
+    const canvas = await html2canvas(element, { 
+        scale: 2.5, 
+        useCORS: true,
+        width: element.offsetWidth,
+        height: element.offsetHeight
+    });
+
+    replacements.forEach(r => { r.ta.style.display = "block"; r.div.remove(); });
+    return canvas;
+}
+
+async function showPreview() {
+    const overlay = document.getElementById('preview-overlay');
+    const container = document.getElementById('preview-container');
+    overlay.style.display = 'flex';
+    container.innerHTML = "<p style='color:white;'>生成中...</p>";
+    
+    const canvas = await generateCanvas();
+    container.innerHTML = "";
+    container.appendChild(canvas);
+}
+
+function closePreview() {
+    document.getElementById('preview-overlay').style.display = 'none';
+}
+
+async function saveAsImage() {
+    const canvas = await generateCanvas();
+    const link = document.createElement('a');
+    link.download = `${document.getElementById('ref-name').value || 'Evaluation'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+async function saveAsPDF() {
+    const canvas = await generateCanvas();
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+    pdf.save(`${document.getElementById('ref-name').value || 'Evaluation'}.pdf`);
+}
+
+function saveAsRefsheet() {
+    const data = localStorage.getItem('ref_eval_v4');
+    const blob = new Blob([data], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${document.getElementById('ref-name').value || 'referee'}.refsheet`;
+    link.click();
+}
+
+function importRefsheet(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        localStorage.setItem('ref_eval_v4', e.target.result);
+        location.reload();
+    };
+    reader.readAsText(file);
 }
 
 function saveData() {
-    const d = { mode: currentMode, gender, inputs: {}, pm: {} };
+    const d = { 
+        currentMode, 
+        plusThreshold: document.getElementById('plus-threshold').value,
+        minusThreshold: document.getElementById('minus-threshold').value,
+        inputs: {}, pm: {} 
+    };
     document.querySelectorAll('.save-data').forEach(e => d.inputs[e.id] = e.value);
     document.querySelectorAll('.pm-cell').forEach(e => d.pm[e.id] = e.innerText);
-    localStorage.setItem('ref_eval_final_hq_v3', JSON.stringify(d));
+    localStorage.setItem('ref_eval_v4', JSON.stringify(d));
 }
 
 function loadData() {
-    const saved = localStorage.getItem('ref_eval_final_hq_v3');
+    const saved = localStorage.getItem('ref_eval_v4');
     if (!saved) return;
     const d = JSON.parse(saved);
-    for (let id in d.inputs) {
-        const el = document.getElementById(id);
-        if (el) el.value = d.inputs[id];
-    }
-    for (let id in d.pm) {
-        const el = document.getElementById(id);
-        if (el) el.innerText = d.pm[id];
-    }
-    if (d.gender) selectGender(d.gender);
-    if (d.mode) setMode(d.mode);
+    if (d.plusThreshold) document.getElementById('plus-threshold').value = d.plusThreshold;
+    if (d.minusThreshold) document.getElementById('minus-threshold').value = d.minusThreshold;
+    for (let id in d.inputs) if (document.getElementById(id)) document.getElementById(id).value = d.inputs[id];
+    for (let id in d.pm) if (document.getElementById(id)) document.getElementById(id).innerText = d.pm[id];
+    if (d.currentMode) setMode(d.currentMode);
     calc();
 }
 
-async function downloadPDF() {
-    const { jsPDF } = window.jspdf;
-    const element = document.getElementById('sheet-area');
-    
-    window.scrollTo(0,0);
-    
-    const canvas = await html2canvas(element, { 
-        scale: 5, 
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        onclone: (cloned) => {
-            cloned.getElementById('sheet-area').style.overflow = 'visible';
-        }
-    });
 
-    const imgData = canvas.toDataURL('image/png', 1.0);
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = 210;
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'NONE');
-    
-    const name = document.getElementById('ref-name').value || 'Evaluation_Sheet';
-    pdf.save(`${name}_2022.pdf`);
+// --- 既存のコードの下の方にある confirmReset をこれに書き換え ---
+
+// 1. 確認画面を開く
+function confirmReset() {
+    document.getElementById('reset-overlay').style.display = 'flex';
 }
 
-function confirmReset() { 
-    if (confirm("リセットしますか？")) { 
-        localStorage.clear(); 
-        location.reload(); 
-    } 
+// 2. 確認画面を閉じる
+function closeResetModal() {
+    document.getElementById('reset-overlay').style.display = 'none';
+}
+
+// 3. 実際に削除を実行する
+function executeReset() {
+    localStorage.clear(); // 保存データを消去
+    location.reload();    // 画面を更新
 }
 
 window.onload = buildTable;
