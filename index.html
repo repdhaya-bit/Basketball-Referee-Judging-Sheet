@@ -3,30 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluation Sheet 2022〜（B－C級 2PO）</title>
-    <!-- 外部ライブラリ -->
+    <title>Evaluation Sheet 2022〜</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- 自作CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="overlay">
     <div class="modal">
-        <h3 style="margin-top:0">審査シート 採点モード選択</h3>
-        <p style="font-size:13px; color:#555;">すべての項目が潰れずA4一枚に収まるよう最適化しました。</p>
-        <div style="display: flex; gap: 15px; margin-top: 25px;">
+        <h3>審査シート 採点モード選択</h3>
+        <p>運用に合わせてモードを選択してください。</p>
+        <div style="display: flex; gap: 15px; margin-top: 25px; justify-content: center;">
             <button class="btn" onclick="setMode('serious')">本格採点 (手入力)</button>
             <button class="btn" style="background:#007bff;" onclick="setMode('simple')">簡単採点 (自動計算)</button>
         </div>
     </div>
 </div>
 
+<div id="settings-panel" class="settings-panel" style="display:none;">
+    <h4>簡単モード設定</h4>
+    <div class="setting-item">
+        <span>加点: </span><input type="number" id="plus-threshold" value="2" min="1" onchange="autoCalc(); saveData();"><span>個の「+」で+1点</span>
+    </div>
+    <div class="setting-item">
+        <span>減点: </span><input type="number" id="minus-threshold" value="2" min="1" onchange="autoCalc(); saveData();"><span>個の「-」で-1点</span>
+    </div>
+</div>
+
 <div class="controls">
     <div id="mode-badge" class="badge">本格モード</div>
     <button class="btn" onclick="toggleMode()">🔄 モード切替</button>
-    <button class="btn btn-green" onclick="downloadPDF()">📄 高品質PDF保存</button>
+    <button class="btn btn-green" onclick="showPreview()">💾 保存・書き出し</button>
+    <button class="btn" style="background:#0056b3;" onclick="document.getElementById('importFile').click()">📂 読み込み</button>
+    <input type="file" id="importFile" style="display:none" accept=".refsheet" onchange="importRefsheet(event)">
     <button class="btn" style="background:#dc3545;" onclick="confirmReset()">🗑️ リセット</button>
 </div>
 
@@ -35,81 +45,63 @@
         <h1>Evaluation Sheet 2022〜（B－C級 2PO）</h1>
     </header>
 
-    <!-- 基本情報 1 -->
-    <table class="info-row" style="margin-top: 5px;">
+    <table class="info-row">
         <tr>
-            <th style="width: 90px;">審判員名</th>
-            <td style="width: 70px;">
+            <th style="width: 80px;">審判員名</th>
+            <td style="width: 60px;">
                 <select id="ref-pos" class="save-data">
-                    <option value="Cc">Cc</option>
-                    <option value="U1">U1</option>
-                    <option value="U2">U2</option>
+                    <option value="Cc">Cc</option><option value="U1">U1</option><option value="U2">U2</option>
                 </select>
             </td>
-            <th style="width: 65px;">氏名</th>
-            <td style="width: 240px;"><input type="text" id="ref-name" class="save-data" placeholder="氏名を入力"></td>
-            <th style="width: 80px;">開催日</th>
+            <th style="width: 50px;">氏名</th>
+            <td style="width: 240px;"><input type="text" id="ref-name" class="save-data" placeholder="氏名"></td>
+            <th style="width: 70px;">開催日</th>
             <td><input type="date" id="match-date" class="save-data"></td>
         </tr>
     </table>
 
-    <!-- 基本情報 2 -->
     <table class="info-row">
         <tr>
-            <th style="width: 90px;">IR名</th>
-            <td style="width: 260px;"><input type="text" id="ir-name" class="save-data"></td>
-            <th style="width: 140px;">大会名</th>
+            <th style="width: 80px;">IR名</th>
+            <td style="width: 250px;"><input type="text" id="ir-name" class="save-data"></td>
+            <th style="width: 100px;">大会名</th>
             <td><input type="text" id="tournament-name" class="save-data"></td>
         </tr>
     </table>
 
-    <!-- 基本情報 3 (Round / 試合) -->
-    <table>
+    <table class="info-row">
         <tr>
-            <th style="width: 90px; height: 57px;">Round</th>
-            <td style="width: 260px; padding:0;">
-                <div class="round-sub-container">
-                    <div class="round-sub-row">
-                        <span id="oval-male" class="oval" onclick="selectGender('male')">男子</span>
-                        <div id="box-male" style="display:none; flex-grow:1; display:flex; align-items:center; justify-content:flex-end;">
-                            <input type="text" id="count-male" class="save-data count-input-line">
-                            <span style="font-size:10px;">試合</span>
-                        </div>
-                    </div>
-                    <div class="round-sub-row">
-                        <span id="oval-female" class="oval" onclick="selectGender('female')">女子</span>
-                        <div id="box-female" style="display:none; flex-grow:1; display:flex; align-items:center; justify-content:flex-end;">
-                            <input type="text" id="count-female" class="save-data count-input-line">
-                            <span style="font-size:10px;">試合</span>
-                        </div>
-                    </div>
+            <th style="width: 80px;">Round</th>
+            <td style="width: 250px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <select id="gender-select" class="save-data" style="width: 70px; border: 1px solid #ccc; height: 20px;">
+                        <option value="">選択</option>
+                        <option value="male">男子</option>
+                        <option value="female">女子</option>
+                    </select>
+                    <input type="text" id="match-count" class="save-data" style="width: 35px; border-bottom: 1px solid black; text-align:center;"> 試合
                 </div>
             </td>
-            <th style="width: 140px;">試合</th>
-            <td style="height: 57px;">
-                <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <input type="text" id="team-a" class="save-data" style="text-align:right;" placeholder="チームA">
-                    <span style="font-weight:bold;">-</span>
-                    <input type="text" id="team-b" class="save-data" placeholder="チームB">
+            <th style="width: 100px;">試合</th>
+            <td>
+                <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
+                    <input type="text" id="team-a" class="save-data" style="text-align:right;"> <span>-</span> <input type="text" id="team-b" class="save-data">
                 </div>
             </td>
         </tr>
     </table>
 
-    <!-- メイン採点表 -->
-    <table style="margin-top: 15px;">
+    <table style="margin-top: 8px;">
         <thead>
             <tr class="eval-row">
                 <th style="width: 100px;">大項目</th>
-                <th style="width: 130px;">中項目</th>
+                <th style="width: 110px;">中項目</th>
                 <th>小項目</th>
-                <th style="width: 50px;">+/-</th>
-                <th style="width: 75px;">点数</th>
+                <th style="width: 45px;">+/-</th>
+                <th style="width: 55px;">点数</th>
             </tr>
         </thead>
-        <tbody id="eval-body">
-            <!-- JavaScriptで生成 -->
-        </tbody>
+        <tbody id="eval-body"></tbody>
         <tfoot>
             <tr class="eval-row" style="background:#f2f2f2; font-weight:bold;">
                 <td colspan="4" style="text-align:center;">合計点</td>
@@ -117,39 +109,49 @@
             </tr>
             <tr class="eval-row" style="background:#f2f2f2; font-weight:bold;">
                 <td colspan="4" style="text-align:center;">総合評価</td>
-                <td class="score-cell center" id="grade-display" style="font-size:16px;">-</td>
+                <td class="score-cell center" id="grade-display">-</td>
             </tr>
         </tfoot>
     </table>
 
-    <!-- コメント欄 -->
-    <table>
+    <table style="margin-top: 5px;">
         <tr><th class="comment-label">よかったところ</th></tr>
         <tr><td class="comment-cell"><textarea id="comment-good" class="save-data"></textarea></td></tr>
         <tr><th class="comment-label">課題のところ</th></tr>
         <tr><td class="comment-cell"><textarea id="comment-bad" class="save-data"></textarea></td></tr>
     </table>
 
-    <!-- 注釈 -->
     <div class="note-section">
         【基本的な点数基準】<br>
         ( 5：とても優れている 4：優れている 3：やや優れている 2：普通 1：やや劣っている )<br>
-        ベースは各項目2点<br>
-        B級合格 (2POでのB級審査の場合) = 12点以上 / C級合格 (2POでのC級審査の場合) = 8点以上
-        
-        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-            <div style="width: 440px; font-weight:500;">
-                合計点総合評価 A= 16点以上 B= 12〜15点 C= 8〜11点<br>
-                評価基準<br>
-                A 安定したレフェリング、次のライセンスを期待できる<br>
-                B B級ライセンスの実力がみてとれる<br>
-                C C級ライセンスの実力がみてとれる
-            </div>
+        ※ベースは各項目2点。合計点評価: A=16以上 B=12-15 C=8-11 D=7以下(-)
+    </div>
+</div>
+
+<div id="preview-overlay" class="preview-overlay" style="display:none;">
+    <button class="close-btn" onclick="closePreview()">×</button>
+    <div class="preview-modal">
+        <h3>書き出しプレビュー</h3>
+        <div id="preview-container"></div>
+        <div class="save-actions">
+            <button class="btn btn-green" onclick="saveAsImage()">🖼️ 画像保存</button>
+            <button class="btn btn-green" onclick="saveAsPDF()">📄 PDF保存</button>
+            <button class="btn" style="background:#6f42c1;" onclick="saveAsRefsheet()">⚙️ 編集用ファイル保存</button>
         </div>
     </div>
 </div>
 
-<!-- 自作JS -->
+<!-- リセット確認用モーダル -->
+<div id="reset-overlay" class="preview-overlay" style="display:none; z-index: 5000;">
+    <div class="modal">
+        <h3>データをリセットしますか？</h3>
+        <p>入力したすべての内容と保存されたデータが消去されます。</p>
+        <div style="display: flex; gap: 15px; margin-top: 25px; justify-content: center;">
+            <button class="btn" style="background:#dc3545;" onclick="executeReset()">🗑️ リセットする</button>
+            <button class="btn" onclick="closeResetModal()">キャンセル</button>
+        </div>
+    </div>
+</div>
 <script src="script.js"></script>
 </body>
 </html>
