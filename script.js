@@ -46,14 +46,45 @@ function togglePM(el) {
 function setMode(m) {
     currentMode = m;
     document.getElementById('overlay').style.display = 'none';
-    document.getElementById('settings-panel').style.display = (m === 'simple' ? 'block' : 'none');
+    
+    const settingsBtn = document.getElementById('settings-toggle-btn');
+    const settingsPanel = document.getElementById('settings-panel');
+    
+    if (m === 'simple') {
+        settingsBtn.style.display = 'block';
+    } else {
+        settingsBtn.style.display = 'none';
+        settingsPanel.style.display = 'none';
+    }
+
     document.getElementById('mode-badge').innerText = (m === 'serious' ? '本格モード' : '簡単モード');
     document.querySelectorAll('.score-input').forEach(i => i.readOnly = (m === 'simple'));
     if (m === 'simple') autoCalc();
     saveData();
 }
 
-function toggleMode() { setMode(currentMode === 'serious' ? 'simple' : 'serious'); }
+function toggleMode() { 
+    setMode(currentMode === 'serious' ? 'simple' : 'serious'); 
+}
+
+// 簡単設定パネルの開閉
+function toggleSettingsPanel() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+}
+
+// 右側リボンの折りたたみ
+function toggleRibbon() {
+    const ribbon = document.getElementById('controls-ribbon');
+    const toggleBtn = document.getElementById('ribbon-toggle-btn');
+    ribbon.classList.toggle('collapsed');
+    
+    if (ribbon.classList.contains('collapsed')) {
+        toggleBtn.innerText = 'メニューを表示';
+    } else {
+        toggleBtn.innerText = 'メニューを隠す';
+    }
+}
 
 function autoCalc() {
     const pLim = parseInt(document.getElementById('plus-threshold').value) || 2;
@@ -84,22 +115,48 @@ function calc() {
     document.getElementById('grade-display').innerText = grade;
 }
 
+// キャプチャ処理（入力値・改行の維持）
 async function generateCanvas() {
     const element = document.getElementById('sheet-area');
-    const textareas = element.querySelectorAll('textarea');
     const replacements = [];
-    
-    textareas.forEach(ta => {
+
+    // 1. Textarea を div に置換（拡大後の高さを維持）
+    element.querySelectorAll('textarea').forEach(ta => {
         const div = document.createElement('div');
         div.innerText = ta.value;
         div.style.cssText = window.getComputedStyle(ta).cssText;
         div.style.height = "auto";
-        div.style.minHeight = "85px";
+        div.style.minHeight = "145px";
         div.style.whiteSpace = "pre-wrap";
         div.style.background = "transparent";
         ta.parentElement.appendChild(div);
         ta.style.display = "none";
-        replacements.push({ta, div});
+        replacements.push({ orig: ta, repl: div });
+    });
+
+    // 2. Input / Select を div に置換してベースラインズレを防止
+    element.querySelectorAll('input, select').forEach(el => {
+        let valText = '';
+        if (el.tagName === 'SELECT') {
+            valText = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '';
+            if (valText === '選択') valText = '';
+        } else {
+            valText = el.value;
+        }
+
+        const span = document.createElement('div');
+        span.innerText = valText;
+        const style = window.getComputedStyle(el);
+        span.style.cssText = style.cssText;
+        span.style.display = 'inline-block';
+        span.style.lineHeight = style.height;
+        span.style.verticalAlign = 'middle';
+        span.style.background = 'transparent';
+        span.style.overflow = 'hidden';
+
+        el.parentElement.appendChild(span);
+        el.style.display = 'none';
+        replacements.push({ orig: el, repl: span });
     });
 
     const canvas = await html2canvas(element, { 
@@ -109,7 +166,11 @@ async function generateCanvas() {
         height: element.offsetHeight
     });
 
-    replacements.forEach(r => { r.ta.style.display = "block"; r.div.remove(); });
+    replacements.forEach(r => {
+        r.orig.style.display = '';
+        r.repl.remove();
+    });
+
     return canvas;
 }
 
@@ -117,7 +178,7 @@ async function showPreview() {
     const overlay = document.getElementById('preview-overlay');
     const container = document.getElementById('preview-container');
     overlay.style.display = 'flex';
-    container.innerHTML = "<p style='color:white;'>生成中...</p>";
+    container.innerHTML = "<p style='color:#a1a1a6;'>生成中...</p>";
     
     const canvas = await generateCanvas();
     container.innerHTML = "";
@@ -126,6 +187,18 @@ async function showPreview() {
 
 function closePreview() {
     document.getElementById('preview-overlay').style.display = 'none';
+}
+
+function handleOverlayClick(e) {
+    if (e.target.id === 'preview-overlay') {
+        closePreview();
+    }
+}
+
+function handleResetOverlayClick(e) {
+    if (e.target.id === 'reset-overlay') {
+        closeResetModal();
+    }
 }
 
 async function saveAsImage() {
@@ -164,6 +237,19 @@ function importRefsheet(event) {
     reader.readAsText(file);
 }
 
+function confirmReset() {
+    document.getElementById('reset-overlay').style.display = 'flex';
+}
+
+function closeResetModal() {
+    document.getElementById('reset-overlay').style.display = 'none';
+}
+
+function executeReset() {
+    localStorage.clear();
+    location.reload();
+}
+
 function saveData() {
     const d = { 
         currentMode, 
@@ -186,25 +272,6 @@ function loadData() {
     for (let id in d.pm) if (document.getElementById(id)) document.getElementById(id).innerText = d.pm[id];
     if (d.currentMode) setMode(d.currentMode);
     calc();
-}
-
-
-// --- 既存のコードの下の方にある confirmReset をこれに書き換え ---
-
-// 1. 確認画面を開く
-function confirmReset() {
-    document.getElementById('reset-overlay').style.display = 'flex';
-}
-
-// 2. 確認画面を閉じる
-function closeResetModal() {
-    document.getElementById('reset-overlay').style.display = 'none';
-}
-
-// 3. 実際に削除を実行する
-function executeReset() {
-    localStorage.clear(); // 保存データを消去
-    location.reload();    // 画面を更新
 }
 
 window.onload = buildTable;
